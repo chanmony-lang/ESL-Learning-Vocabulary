@@ -1,0 +1,7 @@
+{
+  "name": "ESL Vocabulary Studio",
+  "description": "Comprehensive ESL vocabulary learning platform with Quizlet-style sets and folders, interactive study modes, spelling arcade games, and word challenges.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@layer utilities {
+  /* Duolingo 3D Tactile Buttons */
+  .duo-btn-green {
+    background-color: #58cc02;
+    border-bottom: 4px solid #46a302;
+    color: #ffffff;
+    font-weight: 900;
+    border-radius: 1rem;
+    transition: all 0.1s ease;
+  }
+  .duo-btn-green:hover {
+    background-color: #61e002;
+  }
+  .duo-btn-green:active {
+    border-bottom-width: 0px;
+    transform: translateY(4px);
+  }
+
+  .duo-btn-blue {
+    background-color: #1cb0f6;
+    border-bottom: 4px solid #1899d6;
+    color: #ffffff;
+    font-weight: 900;
+    border-radius: 1rem;
+    transition: all 0.1s ease;
+  }
+  .duo-btn-blue:hover {
+    background-color: #24bcff;
+  }
+  .duo-btn-blue:active {
+    border-bottom-width: 0px;
+    transform: translateY(4px);
+  }
+
+  .duo-btn-white {
+    background-color: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-bottom: 4px solid #cbd5e1;
+    color: #334155;
+    font-weight: 800;
+    border-radius: 1rem;
+    transition: all 0.1s ease;
+  }
+  .duo-btn-white:hover {
+    background-color: #f8fafc;
+  }
+  .duo-btn-white:active {
+    border-bottom-width: 2px;
+    transform: translateY(2px);
+  }
+}
+
+/* Print Rules */
+@media print {
+  /* Hide unnecessary browser UI and app shell */
+  header, nav, aside, .no-print, button:not(.print-include), .gamification-bar {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #printable-area {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  @page {
+    margin: 15mm;
+    size: auto;
+  }
+}
