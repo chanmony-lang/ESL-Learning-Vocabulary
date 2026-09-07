@@ -13,6 +13,7 @@ import {
   RotateCcw,
   CheckCircle2,
 } from 'lucide-react';
+import { DEFAULT_WORD_IMAGE_MAP } from '../utils/wordVisuals';
 
 interface Props {
   term: string;
@@ -102,16 +103,47 @@ export const ImagePickerModal: React.FC<Props> = ({
     const results: ImageResult[] = [];
     const seenUrls = new Set<string>();
 
-    // 1. Check presets first
+    // 1. Check curated vocabulary map & presets first
+    if (DEFAULT_WORD_IMAGE_MAP[cleanLower]) {
+      const url = DEFAULT_WORD_IMAGE_MAP[cleanLower];
+      results.push({ url, title: `Curated: ${q}` });
+      seenUrls.add(url);
+    }
+    // Partial matches from dictionary map
+    Object.entries(DEFAULT_WORD_IMAGE_MAP).forEach(([wordKey, url]) => {
+      if ((wordKey.includes(cleanLower) || cleanLower.includes(wordKey)) && !seenUrls.has(url)) {
+        results.push({ url, title: `Vocabulary: ${wordKey}` });
+        seenUrls.add(url);
+      }
+    });
+
     if (SAMPLE_PRESETS[cleanLower]) {
       SAMPLE_PRESETS[cleanLower].forEach(item => {
-        results.push(item);
-        seenUrls.add(item.url);
+        if (!seenUrls.has(item.url)) {
+          results.push(item);
+          seenUrls.add(item.url);
+        }
       });
     }
 
     try {
-      // 2. Query Wikimedia Commons API for authentic, royalty-free educational photos
+      // 2. Query Wikipedia REST Summary API (ultra fast & clean main picture)
+      const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`;
+      const sumRes = await fetch(summaryUrl);
+      if (sumRes.ok) {
+        const sumData = await sumRes.json();
+        const mainImg = sumData?.originalimage?.source || sumData?.thumbnail?.source;
+        if (mainImg && !seenUrls.has(mainImg)) {
+          seenUrls.add(mainImg);
+          results.push({ url: mainImg, title: sumData.title || q });
+        }
+      }
+    } catch (err) {
+      console.warn('Wikipedia summary search error:', err);
+    }
+
+    try {
+      // 3. Query Wikimedia Commons API for authentic photos
       const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
         q
       )}&gsrnamespace=6&gsrlimit=14&prop=imageinfo&iiprop=url|mime&iiurlwidth=600&format=json&origin=*`;
@@ -150,7 +182,7 @@ export const ImagePickerModal: React.FC<Props> = ({
       console.warn('Wikimedia commons search failed:', err);
     }
 
-    // 3. If needed, query Wikipedia pageimages API as supplemental source
+    // 4. Query Wikipedia pageimages API as supplemental source
     if (results.length < 4) {
       try {
         const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
@@ -434,32 +466,47 @@ export const ImagePickerModal: React.FC<Props> = ({
           {/* TAB 1: WEB SEARCH */}
           {tab === 'search' && (
             <div className="space-y-4">
-              <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search keywords (e.g. apple, mountain, collaborate)..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
-                  />
-                </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <form onSubmit={handleSearchSubmit} className="flex gap-2 flex-1">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search keywords (e.g. apple, mountain, collaborate)..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSearching || !searchQuery.trim()}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center gap-1.5 shrink-0"
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Searching...</span>
+                      </>
+                    ) : (
+                      <span>Search</span>
+                    )}
+                  </button>
+                </form>
+
                 <button
-                  type="submit"
-                  disabled={isSearching || !searchQuery.trim()}
-                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center gap-1.5"
+                  type="button"
+                  onClick={() => {
+                    setTab('paste');
+                    handleReadClipboard();
+                  }}
+                  className="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-bold rounded-xl text-xs shadow-2xs transition flex items-center justify-center gap-1.5 shrink-0"
+                  title="Paste copied screenshot or image URL from clipboard (Ctrl+V)"
                 >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Searching...</span>
-                    </>
-                  ) : (
-                    <span>Search</span>
-                  )}
+                  <Clipboard className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Paste Image (Ctrl+V)</span>
                 </button>
-              </form>
+              </div>
 
               {searchError && (
                 <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-800 flex items-start gap-2">

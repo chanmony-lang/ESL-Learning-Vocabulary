@@ -1,17 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { VocabWord } from '../../types';
 import { speakWord, playSound } from '../../utils/audio';
+import { getWordImageUrl } from '../../utils/wordVisuals';
 import confetti from 'canvas-confetti';
-import { Volume2, RotateCcw, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
+import { Volume2, RotateCcw, ArrowRight, CheckCircle2, XCircle, Image as ImageIcon, BookOpen } from 'lucide-react';
 
 interface Props {
   words: VocabWord[];
   accent: string;
+  showPictures?: boolean;
+  onTogglePictures?: () => void;
 }
 
 const MAX_LIVES = 6;
 
-export const HangmanMode: React.FC<Props> = ({ words, accent }) => {
+export const HangmanMode: React.FC<Props> = ({ words, accent, showPictures: initialPictures = false, onTogglePictures }) => {
+  const [internalPictures, setInternalPictures] = useState<boolean>(() => {
+    return localStorage.getItem('lexiquest_pictures_in_games') === 'true';
+  });
+
+  const isPicturesMode = onTogglePictures !== undefined ? initialPictures : internalPictures;
+
+  const togglePicturesMode = (val: boolean) => {
+    if (onTogglePictures) {
+      if (initialPictures !== val) onTogglePictures();
+    } else {
+      setInternalPictures(val);
+      localStorage.setItem('lexiquest_pictures_in_games', String(val));
+    }
+  };
+
   const [index, setIndex] = useState(0);
   const [guessedLetters, setGuessedLetters] = useState<string[]>([]);
   const [isWon, setIsWon] = useState(false);
@@ -75,16 +93,50 @@ export const HangmanMode: React.FC<Props> = ({ words, accent }) => {
   return (
     <div className="max-w-xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 px-1">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 px-1">
         <div>
           <span className="text-xs font-semibold uppercase text-slate-400">Classic Hangman</span>
           <p className="text-base font-bold text-slate-800">Word {index + 1} of {words.length}</p>
         </div>
-        <div className="text-right">
-          <span className="text-xs font-semibold uppercase text-slate-400 block">Remaining Lives</span>
-          <span className={`text-base font-black ${livesLeft <= 2 ? 'text-rose-600 animate-pulse' : 'text-slate-800'}`}>
-            {'❤️'.repeat(Math.max(0, livesLeft))}
-          </span>
+
+        <div className="flex items-center gap-3">
+          {/* Clue Mode Toggle */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            <span className="text-slate-400 text-[10px] uppercase font-bold px-2 select-none">
+              Clue:
+            </span>
+            <button
+              type="button"
+              onClick={() => togglePicturesMode(false)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
+                !isPicturesMode
+                  ? 'bg-white text-indigo-700 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Definition</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => togglePicturesMode(true)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
+                isPicturesMode
+                  ? 'bg-white text-indigo-700 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>Picture</span>
+            </button>
+          </div>
+
+          <div className="text-right">
+            <span className="text-xs font-semibold uppercase text-slate-400 block">Lives</span>
+            <span className={`text-base font-black ${livesLeft <= 2 ? 'text-rose-600 animate-pulse' : 'text-slate-800'}`}>
+              {'❤️'.repeat(Math.max(0, livesLeft))}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -106,10 +158,23 @@ export const HangmanMode: React.FC<Props> = ({ words, accent }) => {
           {wrongGuesses.length >= 6 && <line x1="100" y1="105" x2="118" y2="135" />} {/* Right leg */}
         </svg>
 
-        {/* Clue Info */}
-        <div className="text-center mb-6">
-          <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1">Clue</p>
-          <p className="text-sm font-medium text-slate-700 max-w-md">{currentWord.definition}</p>
+        {/* Clue Info (Definition or Picture) */}
+        <div className="text-center mb-6 max-w-md">
+          <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1">
+            {isPicturesMode ? 'Visual Clue' : 'Meaning Clue'}
+          </p>
+          {isPicturesMode ? (
+            <div className="flex flex-col items-center justify-center">
+              <img
+                src={getWordImageUrl(currentWord)}
+                alt="Word visual clue"
+                className="w-36 h-28 object-cover rounded-xl border border-slate-200 shadow-2xs"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-slate-700 leading-relaxed">{currentWord.definition}</p>
+          )}
         </div>
 
         {/* Target word letter blanks */}

@@ -76,6 +76,7 @@ import {
   Trophy,
   Award,
   Image as ImageIcon,
+  Clipboard,
   Flame,
   Printer,
   PanelLeftClose,
@@ -103,6 +104,7 @@ export default function App() {
   const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
   const [coachWord, setCoachWord] = useState<VocabWord | null>(null);
   const [pickingImageWordId, setPickingImageWordId] = useState<string | null>(null);
+  const [pickingImageTab, setPickingImageTab] = useState<'search' | 'paste' | 'upload' | 'url'>('search');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Modals state
@@ -880,15 +882,39 @@ export default function App() {
                   {activeSet.words.map((word, idx) => (
                     <div
                       key={word.id || idx}
-                      className="py-3.5 flex items-start justify-between gap-4 group hover:bg-slate-50/80 -mx-2 px-2 rounded-xl transition"
+                      tabIndex={0}
+                      onPaste={e => {
+                        const items = e.clipboardData?.items;
+                        if (items) {
+                          for (let i = 0; i < items.length; i++) {
+                            if (items[i].type.indexOf('image') !== -1) {
+                              const file = items[i].getAsFile();
+                              if (file) {
+                                e.preventDefault();
+                                const reader = new FileReader();
+                                reader.onload = ev => {
+                                  const res = ev.target?.result as string;
+                                  if (res) handleUpdateWordImage(word.id, res);
+                                };
+                                reader.readAsDataURL(file);
+                                return;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                      className="py-3.5 flex items-start justify-between gap-4 group hover:bg-slate-50/80 -mx-2 px-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-indigo-300"
                     >
                       <div className="flex items-start gap-3">
                         {/* Word Visual Image or Add Image button */}
                         {word.imageUrl ? (
                           <div
-                            onClick={() => setPickingImageWordId(word.id)}
-                            className="w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 cursor-pointer hover:opacity-90 relative group/img"
-                            title="Click to replace image"
+                            onClick={() => {
+                              setPickingImageWordId(word.id);
+                              setPickingImageTab('search');
+                            }}
+                            className="w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 cursor-pointer hover:opacity-90 relative group/img shadow-2xs"
+                            title="Click to replace image (or press Ctrl+V while focused)"
                           >
                             <img
                               src={word.imageUrl}
@@ -901,14 +927,30 @@ export default function App() {
                             </span>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setPickingImageWordId(word.id)}
-                            className="w-14 h-14 rounded-xl border border-dashed border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 flex flex-col items-center justify-center gap-0.5 shrink-0 bg-slate-50 transition"
-                            title="Add image via search or upload"
-                          >
-                            <ImageIcon className="w-4 h-4" />
-                            <span className="text-[9px] font-bold">+ Image</span>
-                          </button>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button
+                              onClick={() => {
+                                setPickingImageWordId(word.id);
+                                setPickingImageTab('search');
+                              }}
+                              className="w-14 h-8 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center gap-1 bg-slate-50 transition"
+                              title="Add image via search or upload"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                              <span className="text-[9px] font-bold">+ Image</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPickingImageWordId(word.id);
+                                setPickingImageTab('paste');
+                              }}
+                              className="w-14 h-5 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center gap-0.5 text-[8.5px] font-bold transition"
+                              title="Paste image directly from clipboard (Ctrl+V)"
+                            >
+                              <Clipboard className="w-2.5 h-2.5 text-purple-600" />
+                              <span>Paste</span>
+                            </button>
+                          </div>
                         )}
 
                         <div>
@@ -1057,6 +1099,7 @@ export default function App() {
         <ImagePickerModal
           term={activeSet.words.find(w => w.id === pickingImageWordId)?.term || 'Vocabulary'}
           currentImageUrl={activeSet.words.find(w => w.id === pickingImageWordId)?.imageUrl}
+          initialTab={pickingImageTab}
           onSelectImage={url => handleUpdateWordImage(pickingImageWordId, url)}
           onClose={() => setPickingImageWordId(null)}
         />

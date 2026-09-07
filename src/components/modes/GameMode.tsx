@@ -1,15 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { VocabWord } from '../../types';
 import { speakWord, playSound } from '../../utils/audio';
+import { getWordImageUrl } from '../../utils/wordVisuals';
 import confetti from 'canvas-confetti';
-import { Flame, Clock, Trophy, RotateCcw, Check, X } from 'lucide-react';
+import { Flame, Clock, Trophy, RotateCcw, Check, X, Image as ImageIcon, BookOpen } from 'lucide-react';
 
 interface Props {
   words: VocabWord[];
   accent: string;
+  showPictures?: boolean;
+  onTogglePictures?: () => void;
 }
 
-export const GameMode: React.FC<Props> = ({ words, accent }) => {
+export const GameMode: React.FC<Props> = ({ words, accent, showPictures: initialPictures = false, onTogglePictures }) => {
+  const [internalPictures, setInternalPictures] = useState<boolean>(() => {
+    return localStorage.getItem('lexiquest_pictures_in_games') === 'true';
+  });
+
+  const isPicturesMode = onTogglePictures !== undefined ? initialPictures : internalPictures;
+
+  const togglePicturesMode = (val: boolean) => {
+    if (onTogglePictures) {
+      if (initialPictures !== val) onTogglePictures();
+    } else {
+      setInternalPictures(val);
+      localStorage.setItem('lexiquest_pictures_in_games', String(val));
+    }
+  };
+
   const [timeLeft, setTimeLeft] = useState(45);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -17,9 +35,10 @@ export const GameMode: React.FC<Props> = ({ words, accent }) => {
   const [isGameOver, setIsGameOver] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
 
-  // Current challenge: Term displayed with either its real definition or another word's definition
+  // Current challenge: Term displayed with either its real definition/picture or another word's
   const [currentWord, setCurrentWord] = useState<VocabWord | null>(null);
   const [displayedDef, setDisplayedDef] = useState<string>('');
+  const [displayedImage, setDisplayedImage] = useState<string>('');
   const [isMatch, setIsMatch] = useState<boolean>(true);
 
   const nextChallenge = () => {
@@ -28,15 +47,18 @@ export const GameMode: React.FC<Props> = ({ words, accent }) => {
     const shouldMatch = Math.random() > 0.5;
 
     let def = target.definition;
+    let img = getWordImageUrl(target);
     if (!shouldMatch && words.length > 1) {
       const other = words.filter(w => w.id !== target.id)[
         Math.floor(Math.random() * (words.length - 1))
       ];
       def = other.definition;
+      img = getWordImageUrl(other);
     }
 
     setCurrentWord(target);
     setDisplayedDef(def);
+    setDisplayedImage(img);
     setIsMatch(shouldMatch);
   };
 
@@ -131,6 +153,40 @@ export const GameMode: React.FC<Props> = ({ words, accent }) => {
 
   return (
     <div className="max-w-xl mx-auto">
+      {/* Top Controls & HUD */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        {/* Clue Mode Toggle */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+          <span className="text-slate-400 text-[10px] uppercase font-bold px-2 select-none">
+            Clue:
+          </span>
+          <button
+            type="button"
+            onClick={() => togglePicturesMode(false)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
+              !isPicturesMode
+                ? 'bg-white text-indigo-700 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Definition</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => togglePicturesMode(true)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
+              isPicturesMode
+                ? 'bg-white text-indigo-700 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span>Picture</span>
+          </button>
+        </div>
+      </div>
+
       {/* Top HUD */}
       <div className="flex items-center justify-between bg-slate-900 text-white px-5 py-3 rounded-2xl mb-6 shadow">
         <div className="flex items-center gap-2">
@@ -148,16 +204,27 @@ export const GameMode: React.FC<Props> = ({ words, accent }) => {
 
       {/* Target Flash Card */}
       {currentWord && (
-        <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-md p-8 text-center mb-6">
+        <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-md p-6 sm:p-8 text-center mb-6">
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full mb-3 inline-block">
-            Does this definition match?
+            {isPicturesMode ? 'Does this picture match the word?' : 'Does this definition match?'}
           </span>
 
-          <h3 className="text-3xl font-black text-slate-900 my-4">{currentWord.term}</h3>
+          <h3 className="text-3xl font-black text-slate-900 my-2">{currentWord.term}</h3>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 min-h-[80px] flex items-center justify-center text-sm font-medium text-slate-700 leading-relaxed">
-            &ldquo;{displayedDef}&rdquo;
-          </div>
+          {isPicturesMode && displayedImage ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col items-center justify-center max-h-48 overflow-hidden">
+              <img
+                src={displayedImage}
+                alt="Clue candidate"
+                className="max-h-40 w-auto object-contain rounded-xl shadow-2xs"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 min-h-[80px] flex items-center justify-center text-sm font-medium text-slate-700 leading-relaxed">
+              &ldquo;{displayedDef}&rdquo;
+            </div>
+          )}
         </div>
       )}
 

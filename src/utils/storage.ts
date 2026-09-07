@@ -1,5 +1,6 @@
 import { VocabSet, Folder, VocabWord } from '../types';
 import { INITIAL_SETS, INITIAL_FOLDERS } from '../data/defaultSets';
+import { DEFAULT_WORD_IMAGE_MAP } from './wordVisuals';
 
 const SETS_STORAGE_KEY = 'esl_vocab_sets_v1';
 const FOLDERS_STORAGE_KEY = 'esl_vocab_folders_v1';
@@ -8,12 +9,28 @@ const ACCENT_KEY = 'esl_speech_accent_v1';
 export function loadStoredSets(): VocabSet[] {
   try {
     const raw = localStorage.getItem(SETS_STORAGE_KEY);
+    let setsToReturn: VocabSet[];
     if (!raw) {
       localStorage.setItem(SETS_STORAGE_KEY, JSON.stringify(INITIAL_SETS));
-      return INITIAL_SETS;
+      setsToReturn = INITIAL_SETS;
+    } else {
+      const parsed = JSON.parse(raw);
+      setsToReturn = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SETS;
     }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SETS;
+
+    // Hydrate any words that lack an imageUrl if one is available in the curated map
+    const hydrated = setsToReturn.map(set => ({
+      ...set,
+      words: set.words.map(w => {
+        if (!w.imageUrl) {
+          const mapped = DEFAULT_WORD_IMAGE_MAP[w.term.trim().toLowerCase()];
+          if (mapped) return { ...w, imageUrl: mapped };
+        }
+        return w;
+      }),
+    }));
+
+    return hydrated;
   } catch {
     return INITIAL_SETS;
   }
